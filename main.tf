@@ -21,59 +21,61 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-west-2"
+  region = "us-east-1"
 }
 
-resource "random_pet" "sg" {}
+resource "aws_security_group" "allow_tls" {
+  name        = "allow_tls"
+  description = "Allow TLS inbound traffic"
+  vpc_id      = aws_vpc.main.id
 
-data "aws_ami" "ubuntu" {
-  most_recent = true
-
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  owners = ["099720109477"] # Canonical
+}
+resource "aws_security_group_rule" "ingress" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["172.16.0.0/16"]
+  security_group_id = aws_security_group.allow_tls.id
+}
+resource "aws_security_group_rule" "egress" {
+  type              = "egress"
+  protocol          = "all"
+  to_port           = "-1"
+  from_port         = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.allow_tls.id
 }
 
-resource "aws_instance" "web" {
-  ami                    = data.aws_ami.ubuntu.id
-  instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.web-sg.id]
-
-  user_data = <<-EOF
-              #!/bin/bash
-              apt-get update
-              apt-get install -y apache2
-              sed -i -e 's/80/8080/' /etc/apache2/ports.conf
-              echo "Hello World" > /var/www/html/index.html
-              systemctl restart apache2
-              EOF
-}
-
-resource "aws_security_group" "web-sg" {
-  name = "${random_pet.sg.id}-sg"
-  ingress {
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+resource "aws_instance" "app_server" {
+  ami           = data.aws_ami.linux.id
+  instance_type = data.aws_ec2_instance_type.type.instance_type
+  root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
   }
-  // connectivity to ubuntu mirrors is required to run `apt-get update` and `apt-get install apache2`
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  network_interface {
+    network_interface_id = aws_network_interface.foo.id
+    device_index         = 0
+  }
+  tags = {
+    Name = "ExampleAppServerInstance"
   }
 }
 
-output "web-address" {
-  value = "${aws_instance.web.public_dns}:8080"
+resource "aws_subnet" "vpb_subnet" {
+  vpc_id     = aws_vpc.main.id
+  cidr_block = "10.1.1.0/24"
+
+  tags = {
+    Name = "Main"
+  }
+}
+resource "aws_network_interface" "foo" {
+  subnet_id   = aws_subnet.vpb_subnet.id
+  private_ips = ["10.1.1.100"]
+
+  tags = {
+    Name = "primary_network_interface"
+  }
 }
