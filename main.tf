@@ -24,10 +24,18 @@ provider "aws" {
   region = "us-east-1"
 }
 
-resource "aws_security_group" "allow_tls" {
-  name        = "allow_tls"
-  description = "Allow TLS inbound traffic"
-  vpc_id      = aws_vpc.main.id
+resource "aws_vpc" "demo" {
+  cidr_block       = var.vpc_cidr_block
+  instance_tenancy = "default"
+  tags = {
+    Name = "Custom VPC"
+  }
+}
+
+resource "aws_security_group" "demo_sg" {
+  name        = "demo_sg"
+  description = "demo security group"
+  vpc_id      = aws_vpc.demo.id
 
 }
 resource "aws_security_group_rule" "ingress" {
@@ -36,7 +44,7 @@ resource "aws_security_group_rule" "ingress" {
   to_port           = 443
   protocol          = "tcp"
   cidr_blocks       = ["172.16.0.0/16"]
-  security_group_id = aws_security_group.allow_tls.id
+  security_group_id = aws_security_group.demo_sg.id
 }
 resource "aws_security_group_rule" "egress" {
   type              = "egress"
@@ -44,7 +52,7 @@ resource "aws_security_group_rule" "egress" {
   to_port           = "-1"
   from_port         = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.allow_tls.id
+  security_group_id = aws_security_group.demo_sg.id
 }
 
 resource "aws_instance" "app_server" {
@@ -55,7 +63,7 @@ resource "aws_instance" "app_server" {
     volume_type = "gp3"
   }
   network_interface {
-    network_interface_id = aws_network_interface.foo.id
+    network_interface_id = aws_network_interface.demo_networkinterface.id
     device_index         = 0
   }
   tags = {
@@ -63,17 +71,17 @@ resource "aws_instance" "app_server" {
   }
 }
 
-resource "aws_subnet" "vpb_subnet" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.1.1.0/24"
+resource "aws_subnet" "demo_subnet" {
+  vpc_id     = aws_vpc.demo.id
+  cidr_block = var.vpc_cidr_subnet
 
   tags = {
     Name = "Main"
   }
 }
-resource "aws_network_interface" "foo" {
-  subnet_id   = aws_subnet.vpb_subnet.id
-  private_ips = ["10.1.1.100"]
+resource "aws_network_interface" "demo_networkinterface" {
+  subnet_id   = aws_subnet.demo_subnet.id
+  private_ips = [var.privateip]
 
   tags = {
     Name = "primary_network_interface"
