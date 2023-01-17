@@ -22,5 +22,5 @@ variable "vpc_cidr_subnet" {
 }
 variable "privateip" {
   description = "privateip"
-  default     = "10.1.0.200"
+  default     = "10.1.0.211"
 }
