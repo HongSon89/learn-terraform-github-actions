@@ -22,5 +22,9 @@ variable "vpc_cidr_subnet" {
 }
 variable "privateip" {
   description = "privateip"
+<<<<<<< HEAD
   default     = "10.1.0.211"
+=======
+  default     = "10.1.0.100"
+>>>>>>> parent of 8dcac33 (tao thich)
 }
